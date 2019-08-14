@@ -11,6 +11,9 @@
 
 // [ 应用入口文件 ]
 namespace think;
+if(PHP_VERSION < "7.0.12"){
+     exit('请将PHP版本升级至7.0.12版本以上');
+}
 
 // 加载基础文件
 require __DIR__ . '/../thinkphp/base.php';

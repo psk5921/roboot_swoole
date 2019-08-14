@@ -14,4 +14,8 @@ class Content extends Controller
     {
 
     }
+
+    public function index(){
+           return $this->fetch();
+    }
 }

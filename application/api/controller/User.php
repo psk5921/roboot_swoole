@@ -4,6 +4,7 @@ namespace app\api\controller;
 
 use think\Controller;
 use app\api\model\User as UserModel;
+use app\api\model\Content;
 use app\api\consts\HttpCode;
 
 class  User extends Controller
@@ -33,7 +34,7 @@ class  User extends Controller
                 return json($this->json, HttpCode::HTTP_CODE_FOR_202[0]);
             }
             $UserModel = new UserModel;
-            if ($UserModel->uniqueByUser($roboot_name) === true) {
+            if ($UserModel->uniqueByUser($roboot_name)) {
                 $this->json['msg'] = 'This Name Have Been Created';
                 $this->json['code'] = -1;
                 return json($this->json, HttpCode::HTTP_CODE_FOR_202[0]);
@@ -49,6 +50,42 @@ class  User extends Controller
         }
     }
 
+
+    /**
+     * 查找机器人名称是否存在
+     */
+    public function search(){
+       if(request()->isPost()){
+           $name = htmlspecialchars(input('name'));
+           $UserModel = new UserModel;
+           if($id=$UserModel->uniqueByUser($name,false)) {
+               $where = ['uid'=>$id];
+               $Content = new Content;
+               $data = $Content->getContent($where);
+               $arr = [];
+               if(count($data)>1){
+                 foreach ($data as $k=>$items){
+                     $arr[$k]['content'] =  $items['content'];
+                     $arr[$k]['create_at'] =   date('H:i',$items['create_at']);
+                     $arr[$k]['time'] =   $items['create_at'];
+                 }
+                   $res['data'] = ['name'=>$name,'list'=>$arr,'time'=>$arr[count($arr)-1]['time']];
+               }else{
+                   $res['data'] = ['name'=>$name,'list'=>[],'time'=>0];
+               }
+               $res['msg'] = 'Success';
+               $res['code'] = 1;
+
+               unset($data);
+               return json($res, HttpCode::HTTP_CODE_FOR_200[0]);
+           }else{
+               $res['msg'] = 'Can\'t serach info';
+               $res['code'] = -1;
+               $res['data'] = $name;
+               return json($res, HttpCode::HTTP_CODE_FOR_202[0]);
+           }
+       }
+    }
     /**
      * 生成不重复的accessToken
      */

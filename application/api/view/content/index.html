@@ -2,9 +2,201 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <title>机器人消息通知</title>
+    <script src="https://cdn.bootcss.com/jquery/3.4.1/jquery.js"></script>
 </head>
-<body>
+<style>
+    .center {
+        margin: 0 auto;
+        text-align: center;
 
+    }
+
+    .border {
+        border: 1px solid #ccc;
+        width: 500px;
+        height: 500px;
+        margin-top: 30px;
+        background: #f6f6f6;
+        overflow-y: scroll;
+    }
+
+    .bottom {
+        border-bottom: 1px solid #ccc;
+    }
+
+    .pad30 {
+        padding: 30px 0;
+    }
+
+    .nick {
+        padding-right: 10px;
+        padding-left: 10px;
+    }
+
+    .tag {
+        background: #ccc;
+        padding: 3px;
+        color: #f6f6f6;
+    }
+
+    .time {
+
+    }
+
+    .textl {
+        text-align: left;
+        padding: 0 0 0 10px;
+        font-size: 12px;
+        color: red;
+        margin-top: 20px;
+    }
+
+    .content {
+        background: #fff;
+        width: 400px;
+        padding: 10px;
+        margin-left: 45px;
+    }
+
+    .img {
+        vertical-align: middle;
+    }
+
+    .abo {
+
+    }
+</style>
+<body>
+<p class="center" id="center">机器人消息通知</p>
+<div class="border center" style="display: none" id="msg">
+</div>
+<script>
+    var robot_time;
+    var wsUrl;
+    var robot_name;
+    function rebot() {
+        var robot = prompt('请输入你创建的机器人名称');
+        if (robot) {
+            $.post("{:url('user/search')}", {name: robot}, function (res) {
+                if (res.code == 1) {
+                    $('#center').html('机器人 ' + res.data.name + ' 消息通知');
+                    $('#msg').show();
+                    var html='';
+                    if (res.data.list) {
+                        $.each(res.data.list, function (index,item) {
+                            html += '<div class=\"textl\">' +
+                                '        <p ><img src="/robot.jpg" alt="" width="40" height="40" class="img"><span class="nick">'+res.data.name+'</span><span class="tag">机器人</span> <span> '+item.create_at+'</span></p>\n' +
+                                '        <p class="content">'+item.content+'</p>\n' +
+                                '    </div>';
+                        })
+                        $('#msg').append(html);
+                        robot_time =  res.data.time;
+                    }
+                    robot_name = res.data.name; //赋值
+                    createWebSocket(); //创建连接
+                } else {
+                    alert(res.msg);
+                }
+                return false;
+            }, 'json')
+        } else {
+
+        }
+    }
+    rebot();
+
+    var tt ;
+    var lockReconnect = false;//避免重复连接
+    //创建websocket 连接
+    function createWebSocket() {
+        try {
+            init();
+        } catch(e) {
+            console.log('catch error');
+            console.log(e);
+            reconnect();
+        }
+    }
+
+    //创建init方法，初始化一些监听事件，如果希望websocket连接一直保持, 我们会在close或者error上绑定重新连接方法。
+    function init() {
+        ws =  new WebSocket('ws://47.99.55.147:9800');
+        ws.onclose = function () {
+            console.log('链接关闭');
+           reconnect();
+        };
+        ws.onerror = function() {
+            console.log('发生异常了');
+            reconnect();
+        };
+        ws.onopen = function () {
+            //心跳检测重置
+            console.log('连接打开');
+            heartCheck.start();
+            var datas = {name:robot_name,time:robot_time};
+            ws.send( JSON.stringify(datas));
+        };
+        ws.onmessage = function (event) {
+            console.log('接收到消息');
+            console.log(event.data);
+            //拿到任何消息都说明当前连接是正常的
+            console.log(JSON.parse(event.data)) ;
+            var html='';
+            var list = JSON.parse(event.data).list;
+            if (list) {
+                $.each(list, function (index,item) {
+                    html += '<div class=\"textl\">' +
+                        '        <p ><img src="/robot.jpg" alt="" width="40" height="40" class="img"><span class="nick">'+robot_name+'</span><span class="tag">机器人</span> <span> '+item.create_at+'</span></p>\n' +
+                        '        <p class="content">'+item.content+'</p>\n' +
+                        '    </div>';
+                })
+                $('#msg').append(html);
+            }
+            robot_time =  JSON.parse(event.data).time;
+            var datas = {name:robot_name,time:robot_time};
+            ws.send(JSON.stringify(datas)); // 心跳包
+            heartCheck.start();
+        }
+    }
+    //重连操作，通过设置lockReconnect变量避免重复连接
+
+    function reconnect() {
+        if(lockReconnect) {
+            return;
+        };
+        lockReconnect = true;
+        //没连接上会一直重连，设置延迟避免请求过多
+        tt && clearTimeout(tt);
+        tt = setTimeout(function () {
+            createWebSocket();
+            lockReconnect = false;
+        }, 4000);
+    }
+    //心跳检测
+    var heartCheck = {
+        timeout: 3000, //每隔三秒发送心跳
+        num: 3,  //3次心跳均未响应重连
+        timeoutObj: null,
+        serverTimeoutObj: null,
+        start: function(){
+            var _this = this;
+            var _num = this.num;
+            this.timeoutObj && clearTimeout(this.timeoutObj);
+            this.serverTimeoutObj && clearTimeout(this.serverTimeoutObj);
+            this.timeoutObj = setTimeout(function(){
+                //这里发送一个心跳，后端收到后，返回一个心跳消息，
+                //onmessage拿到返回的心跳就说明连接正常
+               var datas = {name:robot_name,time:robot_time};
+                ws.send(JSON.stringify(datas)); // 心跳包
+                _num--;
+                //计算答复的超时次数
+                if(_num === 0) {
+                    ws.colse();
+                }
+            }, this.timeout)
+        }
+    }
+</script>
 </body>
 </html>

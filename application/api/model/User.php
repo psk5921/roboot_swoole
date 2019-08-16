@@ -40,7 +40,7 @@ class User extends Model
         if (empty($accessToken) || !is_string($accessToken)) {
             return false;
         }
-        $where = ['access_token' => $accessToken];
+        $where = [['access_token' ,'=',$accessToken]];
         $result = $this->where($where)->value('id');
         if ($result) {
             return $result;
@@ -54,15 +54,15 @@ class User extends Model
      * @param $roboot_name
      * @return bool|mixed
      */
-    public function uniqueByUser($roboot_name)
+    public function uniqueByUser($roboot_name,$ip=true)
     {
         if (empty($roboot_name)) {
             return false;
         }
-        $where = ['roboot_name' => $roboot_name, 'ip' => request()->ip()];
+        $where = ['roboot_name' => $roboot_name];
         $result = $this->where($where)->value('id');
         if ($result) {
-            return true;
+            return $result;
         } else {
             return false;
         }
